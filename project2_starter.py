@@ -48,7 +48,9 @@ def load_listing_results(html_path) -> list[tuple]:
     for listing in listings:
         href = listing.get('href', '')
         if '/rooms/' in href:
-            listing_id = href.split('/rooms')[1].split('?')[0]
+            listing_id = href.split('/rooms/')[1].split('?')[0]
+            if not listing_id.isdigit():
+                continue
             title_tag = listing.find('div')
             if title_tag:
                 title = title_tag.get_text(strip=True)
@@ -87,7 +89,7 @@ def get_listing_details(listing_id) -> dict:
         soup = BeautifulSoup(f.read(), 'html.parser')
     text = soup.get_text()
     if 'Pending' in text:
-        policy = 'pending'
+        policy = 'Pending'
     elif 'Exempt' in text:
         policy = 'Exempt'
     else:
@@ -95,7 +97,7 @@ def get_listing_details(listing_id) -> dict:
         if match_policy:
             policy = match_policy.group()
         else:
-            "Pending"
+            policy = "Pending"
     if 'Superhost' in text:
         host_type = 'Superhost'
     else:
@@ -209,7 +211,7 @@ def avg_location_rating_by_room_type(data) -> dict:
         if rating == 0:
             continue
         totals[room] = totals.get(room, 0) + rating
-        counts[room] = counts.gt(room, 0) + 1
+        counts[room] = counts.get(room, 0) + 1
     room_average_location_ratings = {}
     for room in totals:
         room_average_location_ratings[room] = totals[room]/counts[room]
@@ -240,7 +242,7 @@ def validate_policy_numbers(data) -> list[str]:
         policy = row[2]
         if policy in ['Pending', 'Exempt']:
             continue
-        if not re.match(r'(20\d{4}STR|STR-\d{7})$', policy)
+        if not re.match(r'(20\d{2}-00\d{4}STR|STR-\d{7})$', policy):
             invalid.append(listing_id)
     return invalid
     # ==============================
