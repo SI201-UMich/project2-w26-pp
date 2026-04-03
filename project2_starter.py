@@ -6,9 +6,9 @@
 # If you worked with generative AI also add a statement for how you used it.
 # e.g.:
 # Asked ChatGPT for hints on debugging and for suggestions on overall code structure
-#
+# I used ChatGPT to help me debug and find out what was wrong with my logic. 
 # Did your use of GenAI on this assignment align with your goals and guidelines in your Gen AI contract? If not, why?
-#
+# It aligns with my goals as I attempted everythign on my own with my own prior knowledge and only used ChatGPT when I had an error that I couldn't figure out how to solve. 
 # --- ARGUMENTS & EXPECTED RETURN VALUES PROVIDED --- #
 # --- SEE INSTRUCTIONS FOR FULL DETAILS ON METHOD IMPLEMENTATION --- #
 
