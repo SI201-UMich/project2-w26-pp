@@ -41,20 +41,16 @@ def load_listing_results(html_path) -> list[tuple]:
     # ==============================
     # YOUR CODE STARTS HERE
     # ==============================
-    with open(html_path, "r", encoding='utf-8-sig') as f:
-        soup = BeautifulSoup(f.read(), 'html.parser')
+    with open(html_path, "r", encoding="utf-8-sig") as f:
+        soup = BeautifulSoup(f.read(), "html.parser")
     results = []
-    listings = soup.find_all('a')
-    for listing in listings:
-        href = listing.get('href', '')
-        if '/rooms/' in href:
-            listing_id = href.split('/rooms/')[1].split('?')[0]
-            if not listing_id.isdigit():
-                continue
-            title_tag = listing.find('div')
-            if title_tag:
-                title = title_tag.get_text(strip=True)
-                results.append((title, listing_id))
+    seen_ids = []
+    for tag in soup.find_all(id=lambda x: x and x.startswith('title_')):
+        listing_id = tag['id'].replace('title_', "")
+        title = tag.get_text(strip=True)
+        if listing_id not in seen_ids:
+            results.append((title, listing_id))
+            seen_ids.append(listing_id)
     return results
     # ==============================
     # YOUR CODE ENDS HERE
@@ -88,31 +84,42 @@ def get_listing_details(listing_id) -> dict:
     with open(path, 'r', encoding='utf-8-sig') as f:
         soup = BeautifulSoup(f.read(), 'html.parser')
     text = soup.get_text()
-    if 'Pending' in text:
-        policy = 'Pending'
-    elif 'Exempt' in text:
-        policy = 'Exempt'
-    else:
-        match_policy = re.search(r'(20\d{2}-00\d{4}STR|STR-\d{7})', text)
-        if match_policy:
-            policy = match_policy.group()
+    policy_tag = soup.find(string=re.compile(r'Policy number', re.IGNORECASE))
+    if policy_tag:
+        span = policy_tag.parent.find('span')
+        if span:
+            raw = span.get_text(strip=True).replace('\ufeff', "")
         else:
+            ''
+        if raw.lower() == 'pending' or raw == '':
             policy = "Pending"
+        elif raw.lower() == 'exempt':
+            policy = 'Exempt'
+        else:
+            policy = raw
+    else:
+        policy = 'Pending'
     if 'Superhost' in text:
         host_type = 'Superhost'
     else:
         host_type = 'regular'
-    match_host_type = re.search(r'Hosted by ([A-Za-z &]+)', text)
-    if match_host_type:
-        host_name = match_host_type.group(1).strip()
-    else:
-        host_name = ""
-    if 'Private' in text:
-        room_type = "Private Room"
-    elif "Shared" in text:
-        room_type = "Shared Room"
+    hosting_h2 = soup.find('h2', string=lambda s: s and 'hosted by' in s.lower())
+    if hosting_h2:
+        h2_text = hosting_h2.get_text(separator=' ', strip=True)
+        if 'Private' in h2_text:
+            room_type = 'Private Room'
+        elif 'Shared' in h2_text:
+            room_type = "Shared Room"
+        else:
+            room_type = "Entire Room"
+        name_match = re.search(r'hosted by\s+(.+)', h2_text, re.IGNORECASE)
+        if name_match:
+            host_name = name_match.group(1).strip()
+        else:
+            host_name = ""
     else:
         room_type = "Entire Room"
+        host_name = ''
     match_location = re.search(r'Location\s*([\d.]+)', text)
     if match_location:
         location_rating = float(match_location.group(1))
@@ -296,7 +303,7 @@ class TestCases(unittest.TestCase):
         details_list = []
         for listing_id in html_list:
             details_list.append(get_listing_details(listing_id))
-        self.assertEqual(details_list[0]['567507']['policy_number'], 'STR-0005349')
+        self.assertEqual(details_list[0]['467507']['policy_number'], 'STR-0005349')
         self.assertEqual(details_list[2]['1944564']['host_type'], "Superhost")
         self.assertEqual(details_list[2]['1944564']['room_type'], 'Entire Room')
         self.assertEqual(details_list[2]['1944564']['location_rating'], 4.9)
@@ -318,18 +325,18 @@ class TestCases(unittest.TestCase):
         # TODO: Check that the first data row matches ["Guesthouse in San Francisco", "49591060", "STR-0000253", "Superhost", "Ingrid", "Entire Room", "5.0"].
         output_csv(self.detailed_data, out_path)
         rows = []
-        with open(out_path, 'r', enconding='utf-8-sig') as f:
+        with open(out_path, 'r', encoding='utf-8-sig') as f:
             reader = csv.reader(f)
             for row in reader:
-                row.append(row)
-        self.assertEqual(rows[1], ['Guesthouse in San Fransisco', '49591060', 'STR-0000253', 'Superhost', 'Ingrid', 'Entire Room', '5.0'])
+                rows.append(row)
+        self.assertEqual(rows[1], ['Guesthouse in San Francisco', '49591060', 'STR-0000253', 'Superhost', 'Ingrid', 'Entire Room', '5.0'])
         os.remove(out_path)
 
     def test_avg_location_rating_by_room_type(self):
         # TODO: Call avg_location_rating_by_room_type() and save the output.
         # TODO: Check that the average for "Private Room" is 4.9.
         averages = avg_location_rating_by_room_type(self.detailed_data)
-        self.assertEqual(averages["Private Room"], 4.9)
+        self.assertAlmostEqual(averages["Private Room"], 4.9)
 
     def test_validate_policy_numbers(self):
         # TODO: Call validate_policy_numbers() on detailed_data and save the result into a variable invalid_listings.
